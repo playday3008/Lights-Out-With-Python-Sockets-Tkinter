@@ -25,7 +25,7 @@ class Application(tk.Tk):
         super().__init__(*args)  # inits the inherited Tk class
 
         # adds some meta data to the application
-        self.title("Tic Tac Toa Project")
+        self.title("Lights Out Project")
         # locked the app min dimensions
         self.minsize(700, 600)
         # self.maxsize(700, 600) # i can add a max dimension here
