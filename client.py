@@ -1,7 +1,7 @@
-#!/usr/bin/env python3.7
-# Isaac Diaby 090492276
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
 
-# the client views and page routing
+# The client views and page routing
 import tkinter as tk  # Ui builder
 from tkinter import ttk # leaderboard UI builder
 
@@ -12,15 +12,16 @@ to run in the back ground)
 """
 import asyncio
 
-# the client socket controller that is used by the ui/client, this will have all the actions that the client can perform.
+# The client socket controller that is used by the ui/client, this will have all the actions that the client can perform.
 from client_socket_connection import ClientServerSocket
 
-# used to create multiple threads (in my case allow the client to wait to join a game and be able to cancel without needing the 'join a game' function to return a value and end)
+# Used to create multiple threads (in my case allow the client to wait to join a game and be able to cancel without needing the 'join a game' function to return a value and end)
 import _thread
+import socket # used to get the local ip address of the client
 
 
 class Application(tk.Tk):
-    # can pass in anything as an array
+    # Can pass in anything as an array
     def __init__(self, *args):
         super().__init__(*args)  # inits the inherited Tk class
 
@@ -77,7 +78,7 @@ class Application(tk.Tk):
             frame.tkraise()  # brings the fram to the front of the window.
         return
 
-    def authenticate_user(self, Frame: tk.Frame, userCredentials: "(username: String, Passowrd: String)", socketHostData: "(HostName: String, Port: Number)"):
+    def authenticate_user(self, Frame: tk.Frame, user_credentials: tuple[str, str], socket_host_data: tuple[str, int]):
         """
         This procedure will attempt to connect to the server socket by passing the address and port to ClientServerSocket.
         Then try to authenticate the client by passing user credentials in the login function in the ClientServerSocket class.
@@ -85,14 +86,14 @@ class Application(tk.Tk):
         Else the user won't be authenticated and will be told what is wrong.
         """
         try:
-            if ((len(userCredentials[0]) > 0) and (len(userCredentials[1]) > 5)):
-                print("Attempt to authenticate client", userCredentials[0])
+            if ((len(user_credentials[0]) > 0) and (len(user_credentials[1]) > 5)):
+                print("Attempt to authenticate client", user_credentials[0])
                 # initialize the ClientServerSocket class and point to the socket server with its address and port
-                self.SocketConnection = ClientServerSocket(socketHostData)
+                self.SocketConnection = ClientServerSocket(socket_host_data)
                 # attempt to authenticate the client and wait for the login function to return.
                 result = asyncio.run(
-                    self.SocketConnection.login(userCredentials))
-                if self.SocketConnection.isAuth == True:
+                    self.SocketConnection.login(user_credentials))
+                if self.SocketConnection.is_auth == True:
                     print("Clinet authenticated: True")
                     # Switch to the home page
                     Frame.err_label.grid_remove()
@@ -106,14 +107,14 @@ class Application(tk.Tk):
             else:
                 # display error message
                 Frame.ERROR_MSG.set("Password must be 6 characters or more" if (len(
-                    userCredentials[0]) > 0) else "Username must be 1 character or more")
+                    user_credentials[0]) > 0) else "Username must be 1 character or more")
                 Frame.err_label.grid()
         except ConnectionError as e:
             print(e)
             Frame.ERROR_MSG.set("Can't Reach the Server Socket")
             Frame.err_label.grid()
 
-    def register_user(self, Frame: tk.Frame, userCredentials: "(username: String, Passowrd: String)", socketHostData: "(HostName: String, Port: Number)"):
+    def register_user(self, Frame: tk.Frame, user_credentials: tuple[str, str], socket_host_data: tuple[str, int]):
         """
         This procedure will attempt to connect to the server socket by passing the address and port to ClientServerSocket.
         Then try to create a new user account by passing a unique username and a password to the register function in the ClientServerSocket class.
@@ -121,19 +122,19 @@ class Application(tk.Tk):
         Else the user's account won't be created in the database and will be told what is wrong.
         """
         try:
-            if ((len(userCredentials[0]) > 0) and (len(userCredentials[1]) > 5)):
-                print("Attempt to create new user account", userCredentials[0])
+            if ((len(user_credentials[0]) > 0) and (len(user_credentials[1]) > 5)):
+                print("Attempt to create new user account", user_credentials[0])
                 # initialize the ClientServerSocket class and point to the socket server with its address and port
-                self.SocketConnection = ClientServerSocket(socketHostData)
+                self.SocketConnection = ClientServerSocket(socket_host_data)
                 result = asyncio.run(
-                    self.SocketConnection.register(userCredentials))  # attempt to create a new user account in the database and wait for the register function to return.
+                    self.SocketConnection.register(user_credentials))  # attempt to create a new user account in the database and wait for the register function to return.
                 # Display any additional information
                 Frame.ERROR_MSG.set(result)
                 Frame.err_label.grid()
             else:
                 # display error message
                 Frame.ERROR_MSG.set("Password must be 6 characters or more") if (len(
-                    userCredentials[0]) > 0) else Frame.ERROR_MSG.set("Username must be 1 character or more")
+                    user_credentials[0]) > 0) else Frame.ERROR_MSG.set("Username must be 1 character or more")
                 Frame.err_label.grid()
 
         except ConnectionError as e:
@@ -159,6 +160,7 @@ class HomePage(tk.Frame):  # inherit from the tk frame
         # print(self.__dict__) # shows me the attributes of this variable
         self.controller = controller
         self.parent = parent
+        self.board_size = (3, 3)
         self.ERROR_MSG = tk.StringVar()
         self.render()
 
@@ -168,12 +170,31 @@ class HomePage(tk.Frame):  # inherit from the tk frame
         """
         if self.controller.SocketConnection != None:
             # "Welcome: " + username
-            # - Wins: {self.controller.SocketConnection.userData[1]} - Loses: {self.controller.SocketConnection.userData[2]} - Total games played: {self.controller.SocketConnection.userData[3]}
-            tk.Label(self, text=f"Welcome: {self.controller.SocketConnection.userData[0]}", font=(
+            # - Wins: {self.controller.SocketConnection.user_data[1]} - Loses: {self.controller.SocketConnection.user_data[2]} - Total games played: {self.controller.SocketConnection.user_data[3]}
+            tk.Label(self, text=f"Welcome: {self.controller.SocketConnection.user_data[0]}", font=(
                 "arial", 15, "bold")).grid(row=0, column=0, ipadx=20, pady=10,  padx=60, sticky="news")
+        
+        # Create two drop down menus for the user to select the board size
+        tk.Label(self, text="Rows", font=("arial", 15, "bold")).grid(row=1, column=0, ipadx=20, pady=10,  padx=60, sticky="news")
+        tk.Label(self, text="Columns", font=("arial", 15, "bold")).grid(row=2, column=0, ipadx=20, pady=10,  padx=60, sticky="news")
+        # Create a variable to store the selected value
+        self.rows = tk.StringVar()
+        self.columns = tk.StringVar()
+        self.rows.set(str(self.board_size[0]))
+        self.columns.set(str(self.board_size[1]))
+        # Create a list of values for the drop down menu
+        rows_list = [str(i) for i in range(3, 15)]
+        columns_list = [str(i) for i in range(3, 15)]
+        # Create the drop down menu
+        def submit_board_size(_):
+            self.board_size = (int(self.rows.get()), int(self.columns.get()))
+        tk.OptionMenu(self, self.rows, *rows_list, command=lambda x: submit_board_size(x)).grid(row=1, column=1, ipadx=20, pady=10, padx=60, sticky="news")
+        tk.OptionMenu(self, self.columns, *columns_list, command=lambda x: submit_board_size(x)).grid(row=2, column=1, ipadx=20, pady=10, padx=60, sticky="news")
+
         tk.Button(self, text='Join A Game', font=("arial", 20, "bold"), command=lambda:  self.join_game(
-        )).grid(row=1,  padx=130, ipadx=80, ipady=20, pady=10, sticky="news")
-        tk.Button(self, text='Leader-board', font=("arial", 20, "bold"), command=lambda: self.controller.switch_frame_to(LeaderBoardPage)).grid(row=2,
+        )).grid(row=3,  padx=130, ipadx=80, ipady=20, pady=10, sticky="news")
+
+        tk.Button(self, text='Leader-board', font=("arial", 20, "bold"), command=lambda: self.controller.switch_frame_to(LeaderBoardPage)).grid(row=4,
                                                                                                                                                 padx=130, ipadx=80, ipady=20, pady=90, sticky="news")
         self.err_label = tk.Label(
             self, textvariable=self.ERROR_MSG, font=("arial", 20, "bold"))
@@ -188,20 +209,20 @@ class HomePage(tk.Frame):  # inherit from the tk frame
         print("Join game queue")
         self.controller.switch_frame_to(JoinGamePage)
         # this allows the player to canccel at any time whilst waiting for someone else to join the game.
-        _thread.start_new_thread(self.waiting_to_Join, ())
+        _thread.start_new_thread(self.waiting_to_join, ())
 
-    def waiting_to_Join(self):
+    def waiting_to_join(self):
         try:
-            res = asyncio.run(self.controller.SocketConnection.joinGame())
+            res = asyncio.run(self.controller.SocketConnection.join_game(self.board_size))
         except AttributeError:  # this will throw an error if the client is trying to get into a game without being authentecated by the server
             # send the client to the login page
             self.controller.switch_frame_to(AuthenticationPage)
             raise UserWarning("Currently not signed in")
-        if self.controller.SocketConnection.isInGame is True:
+        if self.controller.SocketConnection.is_in_game is True:
             self.controller.switch_frame_to(GamePage)
             # start game loop
             asyncio.run(
-                self.controller.SocketConnection.startGameLoop(self.controller.frames[GamePage]))
+                self.controller.SocketConnection.start_game_loop(self.controller.frames[GamePage]))
             self.ERROR_MSG.set("")
         else:
             self.controller.switch_frame_to(HomePage)
@@ -237,7 +258,7 @@ class JoinGamePage(tk.Frame):  # inherit from the tk frame
         Leave the game waiting queue and navigate back to the home page
         """
         try:
-            asyncio.run(self.controller.SocketConnection.cancelGame())
+            asyncio.run(self.controller.SocketConnection.cancel_game())
         except AttributeError:  # this will throw an error if the user manages to get un authenticated by the server and tries to leave game the queue
             # send the client to the login page
             self.controller.switch_frame_to(AuthenticationPage)
@@ -265,60 +286,59 @@ class GamePage(tk.Frame):  # inherit from the tk frame
         # game board section
         if self.controller.SocketConnection != None:
             gameBoard_section = tk.Frame(self)
-            self.renderBoard(gameBoard_section)
+            self.render_board(gameBoard_section)
             gameBoard_section.grid(sticky="news", row=0,
                                    column=0, padx=130, pady=20)
-            tk.Label(self, text=f"Player 1: {self.controller.SocketConnection.gameData['player_data'][0][0]}", font=(
+            tk.Label(self, fg="#0000FF", text=f"Player 1: {self.controller.SocketConnection.game_data['player_data'][0][0]}", font=(
                 "arial", 14)).grid(row=1, sticky="nsw",  padx=130)
-            tk.Label(self, text=f"Player 2: {self.controller.SocketConnection.gameData['player_data'][1][0]}", font=(
+            tk.Label(self, fg="#FF0000", text=f"Player 2: {self.controller.SocketConnection.game_data['player_data'][1][0]}", font=(
                 "arial", 14)).grid(row=2, sticky="nsw",  padx=130)
-            tk.Label(self, text=f"Turn: Player {self.controller.SocketConnection.gameData['player_turn']}", font=(
+            tk.Label(self, text=f"Turn: Player {self.controller.SocketConnection.game_data['player_turn']} {'(You)' if self.controller.SocketConnection.user_data[0] == self.controller.SocketConnection.game_data['player_data'][self.controller.SocketConnection.game_data['player_turn']-1][0] else '#####'}", font=(
                 "arial", 14)).grid(row=3, sticky="nsw",  padx=130)
 
             # Setup  Message Label
-            end_of_gmae_section = tk.Frame(self)
+            end_of_game_section = tk.Frame(self)
 
-            self.end_game_btn = tk.Button(end_of_gmae_section, text="Go Back to home", font=(
+            self.end_game_btn = tk.Button(end_of_game_section, text="Go Back to home", font=(
                 "arial", 14), command=lambda: self.controller.switch_frame_to(HomePage))
             self.end_game_btn.grid(
                 row=0, column=1, ipadx=30, ipady=20, padx=10, pady=10)
             self.end_game_btn.grid_remove()
             self.msg_label = tk.Label(
-                end_of_gmae_section, textvariable=self.MSG, font=("arial", 14))
+                end_of_game_section, textvariable=self.MSG, font=("arial", 14))
             self.msg_label.grid(row=0, sticky="news")
             self.msg_label.grid_remove()
-            end_of_gmae_section.grid(row=4, sticky="news")
+            end_of_game_section.grid(row=4, sticky="news")
 
-    def renderBoard(self, boardSection):
+    def render_board(self, boardSection):
         """
         - from the board array it will output the game board in a frame.
          <difficulty>  Tkinter doesnt like buttons being generated in a for loop, (all buttons will have the same command as the last button generated)
          ie in a 3 x 3 board you will always select possition (2,2) AKA the last box. 
         """
-        for row in range(len(self.controller.SocketConnection.gameData["board"])):
-            for column in range(len(self.controller.SocketConnection.gameData["board"][row])):
-                slotState = self.controller.SocketConnection.gameData["board"][row][column]
-                if slotState == 2:
-                    tk.Button(boardSection, bg="#0000FF", state="disabled").grid(
-                        row=row, column=column, ipadx=50, ipady=40, padx=10, pady=10)
-                elif slotState == 1:
-                    tk.Button(boardSection, bg="#FF0000", state="disabled").grid(
-                        row=row, column=column, ipadx=50, ipady=40, padx=10, pady=10)
-                else:
-                    # <difficulty> so i have to explicitly tell the lambda function that i want to use the variables in passed at the time of the button was created
-                    tk.Button(boardSection, command=lambda row=row, col=column: self.take_turn(row, col)).grid(
-                        row=row, column=column, ipadx=60, ipady=40, padx=10, pady=10)
+        size = max(len(self.controller.SocketConnection.game_data["board"]), len(
+            self.controller.SocketConnection.game_data["board"][0]))
+        for row in range(len(self.controller.SocketConnection.game_data["board"])):
+            for column in range(len(self.controller.SocketConnection.game_data["board"][row])):
+                slotState = self.controller.SocketConnection.game_data["board"][row][column]
+                if slotState % 2 == 0:
+                    tk.Button(boardSection, bg="#0000FF", command=lambda row=row, col=column: self.take_turn(row, col)).grid(
+                        row=row, column=column, ipadx=150 / size, ipady=150 / size, padx=5, pady=5)
+                elif slotState % 2 == 1:
+                    tk.Button(boardSection, bg="#FF0000", command=lambda row=row, col=column: self.take_turn(row, col)).grid(
+                        row=row, column=column, ipadx=150 / size, ipady=150 / size, padx=5, pady=5)
 
     def take_turn(self, row, Column):
         rowColumn = (row, Column)
         try:
-            if (self.controller.SocketConnection.userData[0] == self.controller.SocketConnection.gameData["player_data"][self.controller.SocketConnection.gameData["player_turn"]-1][0]):
+            if (self.controller.SocketConnection.user_data[0] == self.controller.SocketConnection.game_data["player_data"][self.controller.SocketConnection.game_data["player_turn"]-1][0]):
                 asyncio.run(
                     self.controller.SocketConnection.take_turn(rowColumn))
                 self.msg_label.grid_remove()
+            else:
+                self.MSG.set("It is not your turn")
+                self.msg_label.grid()
         except:
-            self.MSG.set("It is not your turn")
-            self.msg_label.grid()
             pass
 
 
@@ -346,9 +366,9 @@ class LeaderBoardPage(tk.Frame):  # inherit from the tk frame
         if self.controller.SocketConnection != None:
             # username will be used to lookup a single user's ranking
             username = tk.StringVar()
-            username.set(self.controller.SocketConnection.userData[0])
+            username.set(self.controller.SocketConnection.user_data[0])
 
-            asyncio.run(self.get_all_userData_sorted())
+            asyncio.run(self.get_all_user_data_sorted())
             Leaderboard = ttk.Treeview(self, columns=('username', 'wins', 'losses', 'games_played'))
             Leaderboard.column('#0', width=60, anchor='center')
             Leaderboard.heading('#0', text='Ranking')
@@ -386,16 +406,16 @@ class LeaderBoardPage(tk.Frame):  # inherit from the tk frame
                 search_player_section, textvariable=username).grid(row=0, column=1, pady=20, padx=10, ipady=10, ipadx=20, sticky="swe")
 
             tk.Button(search_player_section, text="Search \nPlayer Rank", font=(
-                "arial", 16), command=lambda: self.findUserRank(username.get())).grid(row=1, column=0, sticky="new", padx=5, ipadx=20)
+                "arial", 16), command=lambda: self.find_user_rank(username.get())).grid(row=1, column=0, sticky="new", padx=5, ipadx=20)
             tk.Button(search_player_section, text="Get My \nPosition", font=(
-                "arial", 16), command=lambda: self.findUserRank(self.controller.SocketConnection.userData[0])).grid(row=1, column=1, sticky="new", padx=5, ipadx=20)
+                "arial", 16), command=lambda: self.find_user_rank(self.controller.SocketConnection.user_data[0])).grid(row=1, column=1, sticky="new", padx=5, ipadx=20)
 
             tk.Button(search_player_section, text="Go Back to home", font=(
                 "arial", 14), command=lambda: self.controller.switch_frame_to(HomePage)).grid(row=3, columnspan=2, column=0, pady=10, padx=20, ipadx=30, ipady=20)
             tk.Label(search_player_section, textvariable=self.MSG, wrap=255, font=(
                 "arial", 14)).grid(row=4, columnspan=2, sticky="sw", pady=20)
 
-    async def get_all_userData_sorted(self):
+    async def get_all_user_data_sorted(self):
         """
         get all user datas from the database via the server connection
         """
@@ -403,14 +423,14 @@ class LeaderBoardPage(tk.Frame):  # inherit from the tk frame
         # fetch_all_user_stats = [("isaac", 12,0,12), ("test1", 0,10,10), ("test2", 4,10,14), ("test3", 10,4,14)]
         try:
             self.MSG.set("")
-            fetch_all_user_stats = await self.controller.SocketConnection.getAllPlayerData()
+            fetch_all_user_stats = await self.controller.SocketConnection.get_all_player_stats()
             if fetch_all_user_stats != True:
                 self.MSG.set(fetch_all_user_stats)
             self.userDatas = self.controller.SocketConnection.leaderboard
         except:
             raise
 
-    def findUserRank(self, username: str):
+    def find_user_rank(self, username: str):
         for i, userdata in enumerate(self.userDatas):
             if userdata[0] == username:
                 return self.MSG.set(f"Rank of {username}: {i+1} ")
@@ -451,7 +471,7 @@ class AuthenticationPage(tk.Frame):  # inherit from the tk frame
         # set up default server connection value
         # server is running on the current computer
      
-        # hostname.set("localhost") # server is running on the current computer
+        hostname.set(socket.gethostname()) # server is running on the current computer
         port_number.set(4201) # on this port number
 
         # authentication section
